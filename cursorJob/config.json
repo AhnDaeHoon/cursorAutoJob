@@ -1,0 +1,15 @@
+{
+  "interval": 5,
+  "max_count": 3,
+  "command": "@chainOfThinking.md",
+  "description": "Cursor IDE AI 자동화 설정",
+  "version": "1.1",
+  "activation_delay": 1.0,
+  "keystroke_delay": 1.0,
+  "enter_delay": 0.5,
+  "final_delay": 2.0,
+  "chat_focus_enabled": true,
+  "chat_click_delay": 0.5,
+  "chat_click_coordinates": [400, 700],
+  "fallback_keyboard_shortcut": "Cmd+L"
+}
