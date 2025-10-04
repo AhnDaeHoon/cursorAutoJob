@@ -1,0 +1,11 @@
+# Windows용 필수 패키지
+pyautogui==0.9.54
+pyperclip==1.8.2
+psutil==5.9.8
+pygetwindow==0.0.9
+pywin32==306
+
+# 선택적 패키지 (더 나은 UI 자동화를 위해)
+pyscreeze==1.0.1
+pytweening==1.2.0
+mouseinfo==0.1.3

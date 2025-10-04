@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-최적화된 Cursor IDE AI 자동화 스크립트
+최적화된 Cursor IDE AI 자동화 스크립트 (크로스 플랫폼)
 UI 요소를 한 번 찾아서 재사용하는 방식
+Windows, macOS, Linux 지원
 """
 
 import time
@@ -12,15 +13,46 @@ import sys
 import signal
 import argparse
 import json
+import platform
 from datetime import datetime
+
+# 플랫폼별 UI 자동화 라이브러리 import
+try:
+    if platform.system() == "Windows":
+        import pyautogui
+        import pygetwindow as gw
+        import win32gui
+        import win32con
+        import win32api
+        import win32process
+    elif platform.system() == "Darwin":  # macOS
+        import subprocess
+    elif platform.system() == "Linux":
+        import subprocess
+        try:
+            import pyautogui
+        except ImportError:
+            pass
+except ImportError as e:
+    print(f"⚠️  일부 UI 자동화 라이브러리가 설치되지 않았습니다: {e}")
+    print("Windows의 경우: pip install pyautogui pygetwindow pywin32")
+    print("Linux의 경우: pip install pyautogui")
 
 class OptimizedCursorAutomation:
     def __init__(self, daemon_mode=False):
         self.daemon_mode = daemon_mode
         self.config_file = "config.json"
         self.script_name = "optimized_automation.py"
-        self.pid_file = "/tmp/optimized_automation.pid"
-        self.log_file = "/tmp/optimized_automation.log"
+        self.platform = platform.system()
+        
+        # 플랫폼별 파일 경로 설정
+        if self.platform == "Windows":
+            self.pid_file = os.path.join(os.environ.get('TEMP', 'C:\\temp'), 'optimized_automation.pid')
+            self.log_file = os.path.join(os.environ.get('TEMP', 'C:\\temp'), 'optimized_automation.log')
+        else:
+            self.pid_file = "/tmp/optimized_automation.pid"
+            self.log_file = "/tmp/optimized_automation.log"
+        
         self.running = True
         
         # config 로드
@@ -119,46 +151,57 @@ class OptimizedCursorAutomation:
         sys.exit(0)
     
     def daemonize(self):
-        """데몬 프로세스로 실행"""
-        try:
-            # 첫 번째 fork
-            pid = os.fork()
-            if pid > 0:
-                sys.exit(0)  # 부모 프로세스 종료
-        except OSError as e:
-            self.log_message(f"첫 번째 fork 실패: {e}")
-            sys.exit(1)
-        
-        # 세션 리더가 되기
-        os.setsid()
-        
-        try:
-            # 두 번째 fork
-            pid = os.fork()
-            if pid > 0:
-                sys.exit(0)  # 부모 프로세스 종료
-        except OSError as e:
-            self.log_message(f"두 번째 fork 실패: {e}")
-            sys.exit(1)
-        
-        # 작업 디렉토리 변경
-        os.chdir('/')
-        
-        # 파일 권한 마스크 설정
-        os.umask(0)
-        
-        # 표준 입출력 리다이렉션
-        sys.stdout.flush()
-        sys.stderr.flush()
-        
-        # PID 파일 생성
-        self.write_pid_file()
-        
-        # 시그널 핸들러 등록
-        signal.signal(signal.SIGTERM, self.signal_handler)
-        signal.signal(signal.SIGINT, self.signal_handler)
-        
-        self.log_message("데몬 모드로 시작됨")
+        """데몬 프로세스로 실행 (크로스 플랫폼)"""
+        if self.platform == "Windows":
+            # Windows에서는 fork가 없으므로 간단한 백그라운드 실행
+            self.log_message("Windows에서 백그라운드 모드로 시작됨")
+            self.write_pid_file()
+            
+            # Windows 시그널 핸들러 등록
+            signal.signal(signal.SIGTERM, self.signal_handler)
+            signal.signal(signal.SIGINT, self.signal_handler)
+            signal.signal(signal.SIGBREAK, self.signal_handler)
+        else:
+            # Unix 계열 (macOS, Linux) 데몬화
+            try:
+                # 첫 번째 fork
+                pid = os.fork()
+                if pid > 0:
+                    sys.exit(0)  # 부모 프로세스 종료
+            except OSError as e:
+                self.log_message(f"첫 번째 fork 실패: {e}")
+                sys.exit(1)
+            
+            # 세션 리더가 되기
+            os.setsid()
+            
+            try:
+                # 두 번째 fork
+                pid = os.fork()
+                if pid > 0:
+                    sys.exit(0)  # 부모 프로세스 종료
+            except OSError as e:
+                self.log_message(f"두 번째 fork 실패: {e}")
+                sys.exit(1)
+            
+            # 작업 디렉토리 변경
+            os.chdir('/')
+            
+            # 파일 권한 마스크 설정
+            os.umask(0)
+            
+            # 표준 입출력 리다이렉션
+            sys.stdout.flush()
+            sys.stderr.flush()
+            
+            # PID 파일 생성
+            self.write_pid_file()
+            
+            # 시그널 핸들러 등록
+            signal.signal(signal.SIGTERM, self.signal_handler)
+            signal.signal(signal.SIGINT, self.signal_handler)
+            
+            self.log_message("데몬 모드로 시작됨")
     
     def check_and_terminate_existing_process(self):
         """기존에 실행 중인 optimized_automation.py 프로세스가 있는지 확인하고 중단"""
@@ -210,9 +253,77 @@ class OptimizedCursorAutomation:
             return False
         
     def send_command_to_cursor(self, command):
-        """최적화된 방식으로 Cursor IDE 채팅창에 AI 명령 전송"""
+        """크로스 플랫폼 방식으로 Cursor IDE 채팅창에 AI 명령 전송"""
         try:
-            # Cursor IDE를 활성화하고 채팅창에 포커스를 맞춘 후 입력
+            if self.platform == "Windows":
+                return self._send_command_windows(command)
+            elif self.platform == "Darwin":  # macOS
+                return self._send_command_macos(command)
+            elif self.platform == "Linux":
+                return self._send_command_linux(command)
+            else:
+                self.log_message(f"지원하지 않는 플랫폼: {self.platform}")
+                return False
+                
+        except Exception as e:
+            self.log_message(f"명령 전송 중 오류: {e}")
+            return False
+    
+    def _send_command_windows(self, command):
+        """Windows용 Cursor IDE 명령 전송"""
+        try:
+            # Cursor 창 찾기
+            cursor_windows = gw.getWindowsWithTitle('Cursor')
+            if not cursor_windows:
+                # 다른 가능한 창 제목들 시도
+                possible_titles = ['Cursor', 'cursor', 'Cursor.exe']
+                for title in possible_titles:
+                    cursor_windows = gw.getWindowsWithTitle(title)
+                    if cursor_windows:
+                        break
+            
+            if not cursor_windows:
+                self.log_message("❌ Cursor 창을 찾을 수 없습니다.")
+                return False
+            
+            # 첫 번째 Cursor 창 활성화
+            cursor_window = cursor_windows[0]
+            cursor_window.activate()
+            time.sleep(self.delays['activation'])
+            
+            # 채팅창 열기 (Ctrl+L)
+            pyautogui.hotkey('ctrl', 'l')
+            time.sleep(1.5)
+            pyautogui.hotkey('ctrl', 'l')
+            time.sleep(self.delays['keystroke'])
+            
+            # 채팅창 영역 클릭 (일반적인 위치)
+            window_center = cursor_window.center
+            chat_x = window_center.x
+            chat_y = window_center.y + 100  # 창 중앙에서 아래쪽
+            pyautogui.click(chat_x, chat_y)
+            time.sleep(0.3)
+            
+            # 명령어 입력
+            pyautogui.write(command)
+            time.sleep(self.delays['enter'])
+            
+            # 엔터 두 번
+            pyautogui.press('enter')
+            time.sleep(self.delays['enter'])
+            pyautogui.press('enter')
+            time.sleep(self.delays['final'])
+            
+            self.log_message(f"AI 명령 전송 (Windows): {command}")
+            return True
+            
+        except Exception as e:
+            self.log_message(f"Windows 명령 전송 중 오류: {e}")
+            return False
+    
+    def _send_command_macos(self, command):
+        """macOS용 Cursor IDE 명령 전송 (AppleScript)"""
+        try:
             applescript = f'''
             tell application "Cursor"
                 activate
@@ -257,11 +368,72 @@ class OptimizedCursorAutomation:
             # AppleScript 실행
             subprocess.run(['osascript', '-e', applescript], check=True)
             
-            self.log_message(f"AI 명령 전송: {command}")
+            self.log_message(f"AI 명령 전송 (macOS): {command}")
             return True
             
         except Exception as e:
-            self.log_message(f"명령 전송 중 오류: {e}")
+            self.log_message(f"macOS 명령 전송 중 오류: {e}")
+            return False
+    
+    def _send_command_linux(self, command):
+        """Linux용 Cursor IDE 명령 전송"""
+        try:
+            # Linux에서는 xdotool이나 pyautogui 사용
+            if 'pyautogui' in globals():
+                # pyautogui 사용
+                # Cursor 창 활성화 (간단한 방법)
+                pyautogui.hotkey('alt', 'tab')  # 창 전환
+                time.sleep(self.delays['activation'])
+                
+                # 채팅창 열기 (Ctrl+L)
+                pyautogui.hotkey('ctrl', 'l')
+                time.sleep(1.5)
+                pyautogui.hotkey('ctrl', 'l')
+                time.sleep(self.delays['keystroke'])
+                
+                # 채팅창 영역 클릭
+                pyautogui.click(500, 600)
+                time.sleep(0.3)
+                
+                # 명령어 입력
+                pyautogui.write(command)
+                time.sleep(self.delays['enter'])
+                
+                # 엔터 두 번
+                pyautogui.press('enter')
+                time.sleep(self.delays['enter'])
+                pyautogui.press('enter')
+                time.sleep(self.delays['final'])
+                
+                self.log_message(f"AI 명령 전송 (Linux): {command}")
+                return True
+            else:
+                # xdotool 사용 (설치 필요)
+                subprocess.run(['xdotool', 'search', '--name', 'Cursor', 'windowactivate'], check=True)
+                time.sleep(self.delays['activation'])
+                
+                subprocess.run(['xdotool', 'key', 'ctrl+l'], check=True)
+                time.sleep(1.5)
+                subprocess.run(['xdotool', 'key', 'ctrl+l'], check=True)
+                time.sleep(self.delays['keystroke'])
+                
+                subprocess.run(['xdotool', 'mousemove', '500', '600'], check=True)
+                subprocess.run(['xdotool', 'click', '1'], check=True)
+                time.sleep(0.3)
+                
+                subprocess.run(['xdotool', 'type', command], check=True)
+                time.sleep(self.delays['enter'])
+                
+                subprocess.run(['xdotool', 'key', 'Return'], check=True)
+                time.sleep(self.delays['enter'])
+                subprocess.run(['xdotool', 'key', 'Return'], check=True)
+                time.sleep(self.delays['final'])
+                
+                self.log_message(f"AI 명령 전송 (Linux): {command}")
+                return True
+                
+        except Exception as e:
+            self.log_message(f"Linux 명령 전송 중 오류: {e}")
             return False
     
     def run_automation(self):
@@ -294,25 +466,51 @@ class OptimizedCursorAutomation:
         
         time.sleep(3)
         
-        # 최초 한번만 Cmd+L 실행하여 채팅창 활성화
+        # 최초 한번만 채팅창 활성화
         self.log_message("🔧 최초 채팅창 활성화 중...")
         try:
-            initial_activation_script = '''
-            tell application "Cursor"
-                activate
-                delay 1.0
-            end tell
-            
-            tell application "System Events"
-                tell process "Cursor"
-                    delay 2.0
-                    key code 37 using command down
+            if self.platform == "Windows":
+                # Windows용 초기 활성화
+                cursor_windows = gw.getWindowsWithTitle('Cursor')
+                if cursor_windows:
+                    cursor_window = cursor_windows[0]
+                    cursor_window.activate()
+                    time.sleep(2.0)
+                    pyautogui.hotkey('ctrl', 'l')
+                    time.sleep(1.0)
+                    self.log_message("✅ 최초 채팅창 활성화 완료 (Windows)")
+                else:
+                    self.log_message("⚠️  Cursor 창을 찾을 수 없습니다.")
+            elif self.platform == "Darwin":  # macOS
+                initial_activation_script = '''
+                tell application "Cursor"
+                    activate
                     delay 1.0
                 end tell
-            end tell
-            '''
-            subprocess.run(['osascript', '-e', initial_activation_script], check=True)
-            self.log_message("✅ 최초 채팅창 활성화 완료")
+                
+                tell application "System Events"
+                    tell process "Cursor"
+                        delay 2.0
+                        key code 37 using command down
+                        delay 1.0
+                    end tell
+                end tell
+                '''
+                subprocess.run(['osascript', '-e', initial_activation_script], check=True)
+                self.log_message("✅ 최초 채팅창 활성화 완료 (macOS)")
+            elif self.platform == "Linux":
+                if 'pyautogui' in globals():
+                    pyautogui.hotkey('alt', 'tab')
+                    time.sleep(2.0)
+                    pyautogui.hotkey('ctrl', 'l')
+                    time.sleep(1.0)
+                    self.log_message("✅ 최초 채팅창 활성화 완료 (Linux)")
+                else:
+                    subprocess.run(['xdotool', 'search', '--name', 'Cursor', 'windowactivate'], check=True)
+                    time.sleep(2.0)
+                    subprocess.run(['xdotool', 'key', 'ctrl+l'], check=True)
+                    time.sleep(1.0)
+                    self.log_message("✅ 최초 채팅창 활성화 완료 (Linux)")
         except Exception as e:
             self.log_message(f"⚠️  최초 채팅창 활성화 실패: {e}")
         
