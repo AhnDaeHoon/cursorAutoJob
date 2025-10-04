@@ -11,19 +11,19 @@
   "fallback_keyboard_shortcut": "Cmd+L",
   "commands": [
     {
-      "interval": 5,
-      "max_count": 3,
-      "command": "@chainOfThinking.md"
-    },
-    {
-      "interval": 5,
-      "max_count": 2,
-      "command": "@secondDirection.md"
-    },
-    {
-      "interval": 5,
+      "interval": 600,
       "max_count": 1,
-      "command": "@finalOrder.md"
+      "command": "@direction_1.md"
+    },
+    {
+      "interval": 600,
+      "max_count": 1,
+      "command": "@direction_2.md"
+    },
+    {
+      "interval": 600,
+      "max_count": 1,
+      "command": "@direction_3.md"
     }
   ]
 }
