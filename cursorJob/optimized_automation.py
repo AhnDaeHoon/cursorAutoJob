@@ -25,10 +25,27 @@ class OptimizedCursorAutomation:
         
         # config 로드
         self.config = self.load_config()
-        self.interval = self.config.get('interval', 10)  # 기본값 10초
+        self.commands = self.config.get('commands', [])  # 명령 목록
+        self.current_command_index = 0  # 현재 실행 중인 명령 인덱스
         self.count = 0
-        self.max_count = self.config.get('max_count', 10)  # 기본값 10회 실행
-        self.command = self.config.get('command', '@2.test.md')  # 기본값 @2.test.md
+        self.total_commands = len(self.commands)
+        
+        # 첫 번째 명령이 있으면 기본값으로 설정
+        if self.commands:
+            self.current_command = self.commands[0]
+            self.interval = self.current_command.get('interval', 10)
+            self.max_count = self.current_command.get('max_count', 10)
+            self.command = self.current_command.get('command', '@2.test.md')
+        else:
+            # 기본값 설정 (하위 호환성)
+            self.interval = self.config.get('interval', 10)
+            self.max_count = self.config.get('max_count', 10)
+            self.command = self.config.get('command', '@2.test.md')
+            self.current_command = {
+                'interval': self.interval,
+                'max_count': self.max_count,
+                'command': self.command
+            }
         
         # 딜레이 설정 (설정 파일에서 가져오거나 기본값 사용)
         self.delays = {
@@ -250,12 +267,16 @@ class OptimizedCursorAutomation:
     def run_automation(self):
         """자동화 실행"""
         self.log_message("=== 최적화된 Cursor IDE AI 자동화 시작 ===")
-        self.log_message(f"간격: {self.interval}초")
-        self.log_message(f"최대 실행 횟수: {self.max_count}회")
+        self.log_message(f"총 명령 개수: {self.total_commands}개")
         self.log_message(f"채팅창 포커스: {'활성화' if self.chat_focus_enabled else '비활성화'}")
         if self.chat_focus_enabled:
             self.log_message(f"채팅창 클릭 좌표: {self.chat_click_coordinates}")
             self.log_message(f"대체 단축키: {self.fallback_shortcut}")
+        self.log_message("=" * 50)
+        
+        # 각 명령별 정보 출력
+        for i, cmd in enumerate(self.commands):
+            self.log_message(f"명령 {i+1}: {cmd['command']} (간격: {cmd['interval']}초, 횟수: {cmd['max_count']}회)")
         self.log_message("=" * 50)
         
         # 기존 프로세스 확인 및 중단
@@ -295,35 +316,57 @@ class OptimizedCursorAutomation:
         except Exception as e:
             self.log_message(f"⚠️  최초 채팅창 활성화 실패: {e}")
         
-        while self.count < self.max_count and self.running:
-            try:
-                self.count += 1
-                
-                # AI에게 보낼 명령 (config에서 가져옴)
-                command = self.command
-                
-                # 명령 전송
-                success = self.send_command_to_cursor(command)
-                if success:
-                    self.log_message(f"✅ {self.count}번째 명령 전송 성공")
-                else:
-                    self.log_message(f"❌ {self.count}번째 명령 전송 실패")
-                
-                # 최대 실행 횟수 도달 시 중단
-                if self.count >= self.max_count:
-                    self.log_message(f"🎉 자동화 완료! 총 {self.count}회 실행됨")
-                    break
-                
-                # 다음 반복까지 대기 (첫 번째 실행 후부터 interval 적용)
-                self.log_message(f"다음 실행까지 {self.interval}초 대기...")
-                time.sleep(self.interval)
-                
-            except KeyboardInterrupt:
-                self.log_message("⏹️  사용자에 의해 중단됨")
+        # 모든 명령을 순차적으로 실행
+        for command_index, command_config in enumerate(self.commands):
+            if not self.running:
                 break
-            except Exception as e:
-                self.log_message(f"오류 발생: {e}")
-                time.sleep(5)  # 오류 시 5초 대기 후 재시도
+                
+            self.current_command_index = command_index
+            self.current_command = command_config
+            self.interval = command_config.get('interval', 10)
+            self.max_count = command_config.get('max_count', 10)
+            self.command = command_config.get('command', '@2.test.md')
+            self.count = 0  # 각 명령마다 카운터 리셋
+            
+            self.log_message(f"🚀 명령 {command_index + 1}/{self.total_commands} 시작: {self.command}")
+            self.log_message(f"   간격: {self.interval}초, 최대 횟수: {self.max_count}회")
+            
+            # 현재 명령 실행
+            while self.count < self.max_count and self.running:
+                try:
+                    self.count += 1
+                    
+                    # 명령 전송
+                    success = self.send_command_to_cursor(self.command)
+                    if success:
+                        self.log_message(f"✅ 명령 {command_index + 1} - {self.count}번째 전송 성공")
+                    else:
+                        self.log_message(f"❌ 명령 {command_index + 1} - {self.count}번째 전송 실패")
+                    
+                    # 최대 실행 횟수 도달 시 다음 명령으로
+                    if self.count >= self.max_count:
+                        self.log_message(f"🎉 명령 {command_index + 1} 완료! 총 {self.count}회 실행됨")
+                        break
+                    
+                    # 다음 반복까지 대기 (첫 번째 실행 후부터 interval 적용)
+                    self.log_message(f"다음 실행까지 {self.interval}초 대기...")
+                    time.sleep(self.interval)
+                    
+                except KeyboardInterrupt:
+                    self.log_message("⏹️  사용자에 의해 중단됨")
+                    self.running = False
+                    break
+                except Exception as e:
+                    self.log_message(f"오류 발생: {e}")
+                    time.sleep(5)  # 오류 시 5초 대기 후 재시도
+            
+            # 명령 간 대기 (마지막 명령이 아닌 경우)
+            if command_index < self.total_commands - 1 and self.running:
+                self.log_message(f"⏳ 다음 명령까지 3초 대기...")
+                time.sleep(3)
+        
+        if self.running:
+            self.log_message("🎉 모든 명령 실행 완료!")
         
         # 정리 작업
         self.remove_pid_file()
@@ -355,9 +398,9 @@ def main():
     else:
         automation = OptimizedCursorAutomation(daemon_mode=False)
         print("최적화된 Cursor IDE AI 자동화 도구")
-        print(f"{automation.max_count}회 Cursor IDE 채팅창에 AI 명령을 입력합니다.")
-        print(f"명령: {automation.command}")
-        print(f"간격: {automation.interval}초")
+        print(f"총 {automation.total_commands}개의 명령을 순차적으로 실행합니다.")
+        for i, cmd in enumerate(automation.commands):
+            print(f"명령 {i+1}: {cmd['command']} (간격: {cmd['interval']}초, 횟수: {cmd['max_count']}회)")
         print()
     
     automation.run_automation()
