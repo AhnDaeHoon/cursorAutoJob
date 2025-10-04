@@ -9,19 +9,20 @@
   "chat_click_delay": 0.5,
   "chat_click_coordinates": [400, 700],
   "fallback_keyboard_shortcut": "Cmd+L",
+  "command_interval_delay": 10.0,
   "commands": [
     {
-      "interval": 600,
+      "interval": 10,
       "max_count": 1,
       "command": "@direction_1.md"
     },
     {
-      "interval": 600,
+      "interval": 10,
       "max_count": 1,
       "command": "@direction_2.md"
     },
     {
-      "interval": 600,
+      "interval": 10,
       "max_count": 1,
       "command": "@direction_3.md"
     }

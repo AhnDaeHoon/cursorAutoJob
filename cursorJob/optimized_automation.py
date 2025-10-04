@@ -49,17 +49,20 @@ class OptimizedCursorAutomation:
         
         # 딜레이 설정 (설정 파일에서 가져오거나 기본값 사용)
         self.delays = {
-            'activation': self.config.get('activation_delay', 1.0),
-            'keystroke': self.config.get('keystroke_delay', 1.0),
-            'enter': self.config.get('enter_delay', 0.5),
-            'final': self.config.get('final_delay', 2.0),
-            'chat_click': self.config.get('chat_click_delay', 0.5)
+            'activation': self.config.get('activation_delay', 0.5),
+            'keystroke': self.config.get('keystroke_delay', 0.5),
+            'enter': self.config.get('enter_delay', 0.3),
+            'final': self.config.get('final_delay', 1.0),
+            'chat_click': self.config.get('chat_click_delay', 0.3)
         }
         
         # 채팅창 포커스 설정
         self.chat_focus_enabled = self.config.get('chat_focus_enabled', True)
         self.chat_click_coordinates = self.config.get('chat_click_coordinates', [400, 700])
         self.fallback_shortcut = self.config.get('fallback_keyboard_shortcut', 'Cmd+L')
+        
+        # 명령 간 대기시간 설정
+        self.command_interval_delay = self.config.get('command_interval_delay', 2.0)
     
     def load_config(self):
         """config.json 파일에서 설정을 로드"""
@@ -222,11 +225,11 @@ class OptimizedCursorAutomation:
             tell application "System Events"
                 tell process "Cursor"
                     -- Cursor가 완전히 활성화될 때까지 대기
-                    delay 2.0
+                    delay 1.0
                     
                     -- 채팅창이 보이도록 보장 (Cmd+L 두 번으로 확실히 열기)
                     key code 37 using command down
-                    delay 1.5
+                    delay 0.8
                     key code 37 using command down
                     delay {self.delays['keystroke']}
                     
@@ -287,12 +290,12 @@ class OptimizedCursorAutomation:
         self.log_message("⚠️  주의사항:")
         self.log_message("1. Cursor IDE를 열고 채팅창이 보이는 상태로 두세요")
         self.log_message("2. 채팅창을 클릭하여 커서를 두세요")
-        self.log_message("3. 3초 후 자동화가 시작됩니다...")
+        self.log_message("3. 1초 후 자동화가 시작됩니다...")
         self.log_message("4. 자동화 중에는 Cursor IDE 창을 건드리지 마세요")
         if not self.daemon_mode:
             self.log_message("5. 중단하려면 Ctrl+C를 누르세요")
         
-        time.sleep(3)
+        time.sleep(1)
         
         # 최초 한번만 Cmd+L 실행하여 채팅창 활성화
         self.log_message("🔧 최초 채팅창 활성화 중...")
@@ -300,14 +303,14 @@ class OptimizedCursorAutomation:
             initial_activation_script = '''
             tell application "Cursor"
                 activate
-                delay 1.0
+                delay 0.3
             end tell
             
             tell application "System Events"
                 tell process "Cursor"
-                    delay 2.0
+                    delay 0.8
                     key code 37 using command down
-                    delay 1.0
+                    delay 0.3
                 end tell
             end tell
             '''
@@ -362,8 +365,8 @@ class OptimizedCursorAutomation:
             
             # 명령 간 대기 (마지막 명령이 아닌 경우)
             if command_index < self.total_commands - 1 and self.running:
-                self.log_message(f"⏳ 다음 명령까지 3초 대기...")
-                time.sleep(3)
+                self.log_message(f"⏳ 다음 명령까지 {self.command_interval_delay}초 대기...")
+                time.sleep(self.command_interval_delay)
         
         if self.running:
             self.log_message("🎉 모든 명령 실행 완료!")
